@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Activity Monitor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 GitHub Activity Monitor</h1>
+            <p>Real-time monitoring of repository activities</p>
+        </header>
+        
+        <div class="status-bar">
+            <span id="status">● Connected</span>
+            <span id="last-update">Last updated: Never</span>
+        </div>
+        
+        <div class="events-container">
+            <h2>Recent Activities</h2>
+            <div id="events-list">
+                <div class="loading">Loading events...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let lastUpdateTime = new Date();
+        
+        function formatTimestamp(isoString) {
+            const date = new Date(isoString);
+            const options = { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZone: 'UTC'
+            };
+            return date.toLocaleString('en-US', options) + ' UTC';
+        }
+        
+        function formatEventMessage(event) {
+            const timestamp = formatTimestamp(event.timestamp);
+            
+            switch(event.event_type) {
+                case 'push':
+                    return `${event.author} pushed to ${event.to_branch} on ${timestamp}`;
+                case 'pull_request':
+                    return `${event.author} submitted a pull request from ${event.from_branch} to ${event.to_branch} on ${timestamp}`;
+                case 'merge':
+                    return `${event.author} merged branch ${event.from_branch} to ${event.to_branch} on ${timestamp}`;
+                default:
+                    return 'Unknown event type';
+            }
+        }
+        
+        function getEventIcon(eventType) {
+            switch(eventType) {
+                case 'push': return '📤';
+                case 'pull_request': return '🔄';
+                case 'merge': return '🔀';
+                default: return '📋';
+            }
+        }
+        
+        function updateEvents() {
+            fetch('/api/events')
+                .then(response => response.json())
+                .then(events => {
+                    const eventsList = document.getElementById('events-list');
+                    
+                    if (events.length === 0) {
+                        eventsList.innerHTML = '<div class="no-events">No events found. Make some changes to your repository!</div>';
+                        return;
+                    }
+                    
+                    eventsList.innerHTML = events.map(event => `
+                        <div class="event-item ${event.event_type}">
+                            <span class="event-icon">${getEventIcon(event.event_type)}</span>
+                            <span class="event-message">${formatEventMessage(event)}</span>
+                            <span class="event-repo">${event.repository}</span>
+                        </div>
+                    `).join('');
+                    
+                    // Update status
+                    document.getElementById('status').textContent = '● Connected';
+                    document.getElementById('status').className = 'connected';
+                    document.getElementById('last-update').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+                })
+                .catch(error => {
+                    console.error('Error fetching events:', error);
+                    document.getElementById('status').textContent = '● Disconnected';
+                    document.getElementById('status').className = 'disconnected';
+                });
+        }
+        
+        // Update events immediately and then every 15 seconds
+        updateEvents();
+        setInterval(updateEvents, 15000);
+    </script>
+</body>
+</html>
